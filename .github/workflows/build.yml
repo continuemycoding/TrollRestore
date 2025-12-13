@@ -19,7 +19,7 @@ jobs:
 
       - name: Build with PyInstaller
         run: |
-          pyinstaller --onefile --clean --name TrollRestore trollstore.py
+          pyinstaller --onefile --clean --name TrollRestore --copy-metadata=readchar --copy-metadata=pymobiledevice3 trollstore.py
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4

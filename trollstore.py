@@ -153,8 +153,7 @@ def main():
     try:
         cli(standalone_mode=False)
     except NoDeviceConnectedError:
-        click.secho("未连接设备！", fg="red")
-        click.secho("请连接您的设备并重试。", fg="red")
+        click.secho("请连接您的设备并重试。如果USB已连接，重新插入后再重试", fg="red")
         exit(1)
     except click.UsageError as e:
         click.secho(e.format_message(), fg="red")

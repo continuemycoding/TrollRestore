@@ -24,7 +24,8 @@ def exit(code=0):
 
 @click.command(cls=Command)
 @click.pass_context
-def cli(ctx, service_provider: LockdownClient) -> None:
+@click.option("--app", default=None, help="The removable system app to replace (e.g., Tips).")
+def cli(ctx, service_provider: LockdownClient, app: str) -> None:
     os_names = {
         "iPhone": "iOS",
         "iPad": "iPadOS",
@@ -56,8 +57,9 @@ def cli(ctx, service_provider: LockdownClient) -> None:
         click.secho("This tool is only compatible with iOS/iPadOS 15.0 - 16.7 RC and 17.0.", fg="red")
         return
 
-    app = click.prompt(
-        """
+    if not app:
+        app = click.prompt(
+            """
 Please specify the removable system app you want to replace with TrollStore Helper.
 If you don't know which app to specify, specify the Tips app.
 

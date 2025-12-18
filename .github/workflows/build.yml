@@ -4,6 +4,9 @@ on:
   workflow_dispatch:
   push:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     name: Build on ${{ matrix.os }}
@@ -24,8 +27,16 @@ jobs:
       - name: Install dependencies
         run: |
           python --version
-          pip install pyinstaller
+          
           pip install -r requirements.txt
+          pip freeze > requirements.txt
+
+          pip install pyinstaller
+          
+      - name: Commit changes
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          file_pattern: requirements.txt
 
       - name: Build with PyInstaller
         run: |

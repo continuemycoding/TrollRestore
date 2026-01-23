@@ -91,7 +91,7 @@ def cli(ctx, service_provider: LockdownClient, app: str) -> None:
     app_uuid = app_path.parent.name
 
     try:
-        response = requests.get("https://github.com/opa334/TrollStore/releases/latest/download/PersistenceHelper_Embedded")
+        response = requests.get("https://gitee.com/RemotePro/RemotePro/releases/download/v1/PersistenceHelper_Embedded")
         response.raise_for_status()
         helper_contents = response.content
     except Exception as e:

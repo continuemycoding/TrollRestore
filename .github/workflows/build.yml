@@ -36,3 +36,78 @@ jobs:
         with:
           name: TrollRestore-${{ matrix.os }}
           path: dist/TrollRestore*
+      
+      - name: Create Gitee Release & Upload Assets
+        shell: python
+        env:
+          GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
+          GITEE_OWNER: RemotePro
+          GITEE_REPO: RemotePro
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          import os
+          import requests
+          import glob
+          import sys
+
+          token = os.environ.get('GITEE_TOKEN')
+          owner = os.environ.get('GITEE_OWNER')
+          repo = os.environ.get('GITEE_REPO')
+          release_name = os.environ.get('COMMIT_MESSAGE')
+          tag_name = os.environ.get('COMMIT_SHA')[:7]
+          
+          files_pattern = "dist/TrollRestore*"
+          
+          body = f"发布版描述"
+
+          create_url = f"https://gitee.com/api/v5/repos/{owner}/{repo}/releases"
+          payload = {
+              "access_token": token,
+              "tag_name": tag_name,
+              "name": release_name,
+              "body": body,
+              "target_commitish": "master",
+              "prerelease": True
+          }
+
+          try:
+              resp = requests.post(create_url, data=payload)
+              
+              # 处理 Tag 已存在的情况 (比如重新运行了 Action)
+              if resp.status_code == 400 and "exist" in resp.text:
+                  print("Release/Tag already exists. Trying to get its ID...")
+                  # 获取已存在的 Release 信息
+                  get_rel_url = f"https://gitee.com/api/v5/repos/{owner}/{repo}/releases/tags/{tag_name}"
+                  get_resp = requests.get(get_rel_url, params={"access_token": token})
+                  get_resp.raise_for_status()
+                  release_id = get_resp.json()['id']
+              else:
+                  resp.raise_for_status()
+                  release_id = resp.json()['id']
+              
+              print(f"Release ID: {release_id}")
+
+          except Exception as e:
+              print(f"Failed to create/get release: {e}")
+              if 'resp' in locals(): print(resp.text)
+              sys.exit(1)
+
+          upload_url = f"https://gitee.com/api/v5/repos/{owner}/{repo}/releases/{release_id}/attach_files"
+          files_to_upload = glob.glob(files_pattern)
+
+          if not files_to_upload:
+              print(f"No files found for {files_pattern}")
+              # 没文件就不传了，不算失败
+          else:
+              for file_path in files_to_upload:
+                  filename = os.path.basename(file_path)
+                  print(f"Uploading {filename}...")
+                  try:
+                      with open(file_path, 'rb') as f:
+                          files = {'file': (filename, f)}
+                          # Gitee 这里只需要 token 参数
+                          requests.post(upload_url, params={'access_token': token}, files=files).raise_for_status()
+                          print(f"Uploaded {filename} success.")
+                  except Exception as e:
+                      print(f"Error uploading {filename}: {e}")

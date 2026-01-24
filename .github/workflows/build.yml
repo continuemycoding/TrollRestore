@@ -45,6 +45,7 @@ jobs:
           GITEE_REPO: RemotePro
           COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
           COMMIT_SHA: ${{ github.sha }}
+          PYTHONIOENCODING: utf-8
         run: |
           import os
           import requests
@@ -71,34 +72,43 @@ jobs:
               "prerelease": True
           }
 
+          release_id = None
+
           try:
+              print(f"Creating release for tag: {tag_name}...")
               resp = requests.post(create_url, data=payload)
               
-              # 处理 Tag 已存在的情况 (比如重新运行了 Action)
-              if resp.status_code == 400 and "exist" in resp.text:
-                  print("Release/Tag already exists. Trying to get its ID...")
-                  # 获取已存在的 Release 信息
+              if resp.status_code == 201:
+                  print("Release created successfully.")
+                  release_id = resp.json()['id']
+              else:
+                  print(f"Create returned status {resp.status_code}. Response: {resp.text}")
+                  print("Assuming release already exists. Trying to get its ID...")
+                  
                   get_rel_url = f"https://gitee.com/api/v5/repos/{owner}/{repo}/releases/tags/{tag_name}"
                   get_resp = requests.get(get_rel_url, params={"access_token": token})
-                  get_resp.raise_for_status()
-                  release_id = get_resp.json()['id']
-              else:
-                  resp.raise_for_status()
-                  release_id = resp.json()['id']
-              
-              print(f"Release ID: {release_id}")
+                  
+                  if get_resp.status_code == 200:
+                      release_id = get_resp.json()['id']
+                      print(f"Found existing release ID: {release_id}")
+                  else:
+                      print(f"Failed to get existing release: {get_resp.text}")
+                      # 如果既创建失败，又获取不到，那就是真出错了，抛出原始创建错误
+                      resp.raise_for_status()
 
           except Exception as e:
-              print(f"Failed to create/get release: {e}")
-              if 'resp' in locals(): print(resp.text)
+              print(f"Critical error handling release: {e}")
+              sys.exit(1)
+
+          if not release_id:
+              print("Failed to obtain Release ID.")
               sys.exit(1)
 
           upload_url = f"https://gitee.com/api/v5/repos/{owner}/{repo}/releases/{release_id}/attach_files"
           files_to_upload = glob.glob(files_pattern)
 
           if not files_to_upload:
-              print(f"No files found for {files_pattern}")
-              # 没文件就不传了，不算失败
+              print(f"No files found for pattern: {files_pattern}")
           else:
               for file_path in files_to_upload:
                   filename = os.path.basename(file_path)
@@ -106,8 +116,11 @@ jobs:
                   try:
                       with open(file_path, 'rb') as f:
                           files = {'file': (filename, f)}
-                          # Gitee 这里只需要 token 参数
-                          requests.post(upload_url, params={'access_token': token}, files=files).raise_for_status()
-                          print(f"Uploaded {filename} success.")
+                          # 上传文件时，如果文件名重复 Gitee 也会报错，这里加一个 try-except 忽略重复上传错误
+                          up_resp = requests.post(upload_url, params={'access_token': token}, files=files)
+                          if up_resp.status_code == 201:
+                              print(f"Uploaded {filename} success.")
+                          else:
+                              print(f"Upload {filename} response: {up_resp.text}")
                   except Exception as e:
                       print(f"Error uploading {filename}: {e}")

@@ -43,7 +43,7 @@ def cli(ctx, service_provider: LockdownClient, app: str) -> None:
     if not all([device_class, device_build, device_version]):
         click.secho("无法获取设备信息！", fg="red")
         click.secho("请确保您的设备已连接并重试。", fg="red")
-        return
+        exit(1)
 
     os_name = (os_names[device_class] + " ") if device_class in os_names else ""
     if (
@@ -55,7 +55,7 @@ def cli(ctx, service_provider: LockdownClient, app: str) -> None:
     ):
         click.secho(f"不支持 {os_name}{device_version} ({device_build})。", fg="red")
         click.secho("此工具仅兼容 iOS/iPadOS 15.0 - 16.7 RC 和 17.0。", fg="red")
-        return
+        exit(1)
 
     if not app:
         app = click.prompt(
@@ -82,11 +82,11 @@ def cli(ctx, service_provider: LockdownClient, app: str) -> None:
     if not app_path:
         click.secho(f"未能找到可移除的系统应用 '{app}'！", fg="red")
         click.secho(f"请确保您输入的应用名称正确，并且系统应用 '{app}' 已安装在您的设备上。", fg="red")
-        return
+        exit(1)
     elif Path("/private/var/containers/Bundle/Application") not in app_path.parents:
         click.secho(f"'{app}' 不是可移除的系统应用！", fg="red")
         click.secho("请选择一个可移除的系统应用。这些必须是可以删除并重新下载的 Apple 原生应用。", fg="red")
-        return
+        exit(1)
 
     app_uuid = app_path.parent.name
 
@@ -96,7 +96,7 @@ def cli(ctx, service_provider: LockdownClient, app: str) -> None:
         helper_contents = response.content
     except Exception as e:
         click.secho(f"下载 TrollStore Helper 失败: {e}", fg="red")
-        return
+        exit(1)
     click.secho(f"正在将 {app} 替换为 TrollStore Helper。(UUID: {app_uuid})", fg="yellow")
 
     back = backup.Backup(
@@ -145,9 +145,8 @@ def cli(ctx, service_provider: LockdownClient, app: str) -> None:
     with DiagnosticsService(service_provider) as diagnostics_service:
         diagnostics_service.restart()
 
-    click.secho("重启后如果您使用“查找我的 iPhone”，请确保将其重新开启。", fg="green")
+    # click.secho("重启后如果您使用“查找我的 iPhone”，请确保将其重新开启。", fg="green")
     click.secho("安装 TrollStore 后，请务必在您选择的应用中安装一个合适的持久化助手 (Persistence Helper)！\n", fg="green")
-
 
 def main():
     try:
